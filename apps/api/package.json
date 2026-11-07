@@ -1,0 +1,20 @@
+{
+  "name": "@lagom-bling/api",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@lagom-bling/connectors": "workspace:*",
+    "@lagom-bling/domain": "workspace:*",
+    "@fastify/cors": "^10.0.0",
+    "dotenv": "^16.4.0",
+    "fastify": "^5.0.0",
+    "zod": "^4.0.0",
+    "@prisma/client": "^6.0.0"
+  }
+}

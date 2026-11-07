@@ -1,0 +1,273 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum DataSystem {
+  LAGOM
+  BLING
+}
+
+enum IntegrationDirection {
+  LAGOM_TO_BLING
+  BLING_TO_LAGOM
+}
+
+enum IntegrationStatus {
+  PENDING
+  VALIDATING
+  PROCESSING
+  SENT
+  CONFIRMED
+  REJECTED
+  FAILED
+  UNKNOWN
+  RECONCILING
+  REPROCESSED
+}
+
+enum DeadLetterStatus {
+  OPEN
+  IN_REVIEW
+  RESOLVED
+  DISCARDED
+}
+
+enum OAuthConnectionStatus {
+  PENDING
+  ACTIVE
+  EXPIRED
+  REVOKED
+  ERROR
+}
+
+model IntegrationConfiguration {
+  id                  String               @id @default(uuid()) @db.Uuid
+  name                String
+  direction           IntegrationDirection
+  resource            String
+  enabled             Boolean              @default(false)
+  dryRun              Boolean              @default(true)
+  settings            Json?
+  createdAt           DateTime             @default(now()) @db.Timestamptz(6)
+  updatedAt           DateTime             @updatedAt @db.Timestamptz(6)
+
+  @@unique([direction, resource])
+  @@map("integration_configurations")
+}
+
+model IntegrationRun {
+  id                String               @id @default(uuid()) @db.Uuid
+  jobName           String
+  direction         IntegrationDirection
+  status            IntegrationStatus   @default(PENDING)
+  correlationId     String?              @db.Uuid
+  startedAt         DateTime             @default(now()) @db.Timestamptz(6)
+  finishedAt        DateTime?            @db.Timestamptz(6)
+  durationMs        Int?
+  itemsRead         Int                  @default(0)
+  itemsConfirmed    Int                  @default(0)
+  itemsFailed       Int                  @default(0)
+  checkpointBefore  String?
+  checkpointAfter   String?
+  errorCode         String?
+  errorMessage      String?
+  transactions      IntegrationTransaction[]
+  events            IntegrationEvent[]
+  reconciliations   ReconciliationResult[]
+
+  @@index([jobName, status, startedAt])
+  @@index([direction, startedAt])
+  @@index([correlationId])
+  @@map("integration_runs")
+}
+
+model IntegrationTransaction {
+  id                    String               @id @default(uuid()) @db.Uuid
+  integrationRunId      String?              @db.Uuid
+  integrationRun        IntegrationRun?      @relation(fields: [integrationRunId], references: [id], onDelete: SetNull)
+  correlationId         String               @default(uuid()) @db.Uuid
+  tenantId              String
+  direction             IntegrationDirection
+  sourceSystem          DataSystem
+  destinationSystem     DataSystem
+  documentType          String
+  sourceDocumentId      String
+  destinationDocumentId String?
+  idempotencyKey        String
+  status                IntegrationStatus    @default(PENDING)
+  attemptCount          Int                  @default(0)
+  payloadHash           String?
+  sanitizedPayload      Json?
+  startedAt             DateTime?            @db.Timestamptz(6)
+  finishedAt            DateTime?            @db.Timestamptz(6)
+  durationMs            Int?
+  errorCode             String?
+  errorMessage          String?
+  createdAt             DateTime             @default(now()) @db.Timestamptz(6)
+  updatedAt             DateTime             @updatedAt @db.Timestamptz(6)
+  attempts              IntegrationAttempt[]
+  events                IntegrationEvent[]
+  deadLetter            IntegrationDeadLetter?
+
+  @@unique([tenantId, direction, documentType, idempotencyKey])
+  @@index([status, createdAt])
+  @@index([sourceSystem, destinationSystem, documentType, sourceDocumentId])
+  @@index([correlationId])
+  @@index([integrationRunId])
+  @@map("integration_transactions")
+}
+
+model IntegrationAttempt {
+  id                       String                 @id @default(uuid()) @db.Uuid
+  integrationTransactionId String                 @db.Uuid
+  integrationTransaction   IntegrationTransaction @relation(fields: [integrationTransactionId], references: [id], onDelete: Restrict)
+  attemptNumber            Int
+  method                   String?
+  endpoint                 String?
+  httpStatus               Int?
+  durationMs               Int?
+  requestSummary           Json?
+  responseSummary          Json?
+  errorCode                String?
+  errorMessage             String?
+  startedAt                DateTime               @default(now()) @db.Timestamptz(6)
+  finishedAt               DateTime?              @db.Timestamptz(6)
+
+  @@unique([integrationTransactionId, attemptNumber])
+  @@index([startedAt])
+  @@map("integration_attempts")
+}
+
+model EntityLink {
+  id                String   @id @default(uuid()) @db.Uuid
+  tenantId          String
+  entityType        String
+  sourceSystem      DataSystem
+  sourceId          String
+  destinationSystem DataSystem
+  destinationId     String
+  canonicalSource   DataSystem?
+  sourceVersion     String?
+  recordHash        String?
+  createdAt         DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt         DateTime @updatedAt @db.Timestamptz(6)
+
+  @@unique([tenantId, entityType, sourceSystem, sourceId, destinationSystem])
+  @@index([tenantId, entityType, destinationSystem, destinationId])
+  @@map("entity_links")
+}
+
+model SyncCheckpoint {
+  id                  String               @id @default(uuid()) @db.Uuid
+  direction           IntegrationDirection
+  tenantId            String
+  resource            String
+  cursor              String?
+  watermarkAt         DateTime?            @db.Timestamptz(6)
+  lastSuccessfulRunId String?              @db.Uuid
+  updatedAt           DateTime             @updatedAt @db.Timestamptz(6)
+
+  @@unique([direction, tenantId, resource])
+  @@index([watermarkAt])
+  @@map("sync_checkpoints")
+}
+
+model ReconciliationResult {
+  id                    String          @id @default(uuid()) @db.Uuid
+  integrationRunId      String?         @db.Uuid
+  integrationRun        IntegrationRun? @relation(fields: [integrationRunId], references: [id], onDelete: SetNull)
+  tenantId              String
+  entityType            String
+  sourceDocumentId      String?
+  destinationDocumentId String?
+  status                String
+  details               Json?
+  createdAt             DateTime        @default(now()) @db.Timestamptz(6)
+
+  @@index([tenantId, entityType, status, createdAt])
+  @@index([integrationRunId])
+  @@map("reconciliation_results")
+}
+
+model IntegrationEvent {
+  id                       String                  @id @default(uuid()) @db.Uuid
+  integrationRunId         String?                 @db.Uuid
+  integrationRun           IntegrationRun?         @relation(fields: [integrationRunId], references: [id], onDelete: SetNull)
+  integrationTransactionId String?                 @db.Uuid
+  integrationTransaction   IntegrationTransaction? @relation(fields: [integrationTransactionId], references: [id], onDelete: SetNull)
+  correlationId            String?                 @db.Uuid
+  actor                     String?
+  action                    String
+  status                    IntegrationStatus?
+  details                   Json?
+  createdAt                 DateTime                @default(now()) @db.Timestamptz(6)
+
+  @@index([correlationId, createdAt])
+  @@index([integrationTransactionId, createdAt])
+  @@map("integration_events")
+}
+
+model IntegrationDeadLetter {
+  id                       String                 @id @default(uuid()) @db.Uuid
+  integrationTransactionId String                 @unique @db.Uuid
+  integrationTransaction   IntegrationTransaction @relation(fields: [integrationTransactionId], references: [id], onDelete: Restrict)
+  status                   DeadLetterStatus       @default(OPEN)
+  failureCategory          String
+  errorCode                String?
+  errorMessage             String?
+  assignedTo               String?
+  resolution               String?
+  createdAt                DateTime               @default(now()) @db.Timestamptz(6)
+  updatedAt                DateTime               @updatedAt @db.Timestamptz(6)
+
+  @@index([status, createdAt])
+  @@map("integration_dead_letters")
+}
+
+model OAuthConnection {
+  id                      String                @id @default(uuid()) @db.Uuid
+  provider                DataSystem
+  accountKey              String
+  scopes                  String[]              @default([])
+  accessTokenCiphertext   String?               @db.Text
+  refreshTokenCiphertext  String?               @db.Text
+  accessTokenExpiresAt    DateTime?             @db.Timestamptz(6)
+  status                  OAuthConnectionStatus @default(PENDING)
+  lastRefreshAt           DateTime?             @db.Timestamptz(6)
+  createdAt               DateTime              @default(now()) @db.Timestamptz(6)
+  updatedAt               DateTime              @updatedAt @db.Timestamptz(6)
+
+  @@unique([provider, accountKey])
+  @@index([status, accessTokenExpiresAt])
+  @@map("oauth_connections")
+}
+
+model AuditAction {
+  id           String   @id @default(uuid()) @db.Uuid
+  actorId      String?
+  action       String
+  targetType   String?
+  targetId     String?
+  justification String?
+  outcome      String
+  details      Json?
+  createdAt    DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([actorId, createdAt])
+  @@index([targetType, targetId, createdAt])
+  @@map("audit_actions")
+}
+
+model OAuthState {
+  stateHash   String   @id
+  sessionHash String
+  expiresAt   DateTime @db.Timestamptz(6)
+
+  @@index([expiresAt])
+  @@map("oauth_states")
+}

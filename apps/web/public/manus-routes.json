@@ -1,0 +1,24 @@
+{
+  "routes": [
+    {
+      "path": "/bling",
+      "title": "APIs Bling (GET)"
+    },
+    {
+      "path": "/",
+      "title": "Visão geral"
+    },
+    {
+      "path": "/transactions",
+      "title": "Transações"
+    },
+    {
+      "path": "/jobs",
+      "title": "Agendamentos"
+    },
+    {
+      "path": "/connections",
+      "title": "Conexões e contratos"
+    }
+  ]
+}

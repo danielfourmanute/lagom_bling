@@ -1,0 +1,2 @@
+Este pacote contém a skill do middleware Lagom DRP <-> Bling.
+Extraia SKILL.md e adicione ao projeto conforme as instruções do Manus.

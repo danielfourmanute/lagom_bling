@@ -1,0 +1,37 @@
+server {
+    listen 80;
+    server_name _;
+    root /usr/share/nginx/html;
+    index index.html;
+    # Callback URLs contain one-time credentials; do not put them in access logs.
+    access_log off;
+    error_log /var/log/nginx/error.log crit;
+    add_header Referrer-Policy no-referrer always;
+    add_header X-Content-Type-Options nosniff always;
+
+    location = /healthz { return 200 'ok'; add_header Content-Type text/plain; }
+    location /api/ {
+        proxy_pass http://api:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        # Painel local (porta só em 127.0.0.1): a chave administrativa vem do .env via
+        # ambiente do container e é injetada aqui; o navegador nunca a recebe.
+        proxy_set_header Authorization "Bearer ${ADMIN_API_TOKEN}";
+        proxy_read_timeout 60s;
+        add_header Cache-Control no-store always;
+    }
+    # Compatibility with the currently registered callback on the domain root.
+    location = / {
+        if ($arg_state != '') { return 418; }
+        try_files /index.html =404;
+    }
+    error_page 418 = @oauth_callback;
+    location @oauth_callback {
+        proxy_pass http://api:3000;
+        proxy_set_header Host $host;
+        proxy_read_timeout 60s;
+        add_header Cache-Control no-store always;
+    }
+    location / { try_files $uri $uri/ /index.html; }
+}

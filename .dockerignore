@@ -1,0 +1,14 @@
+.git
+node_modules
+**/node_modules
+**/dist
+**/coverage
+.pnpm-store
+.env
+.env.*
+!.env.example
+.npmrc
+**/.npmrc
+*.pem
+*.key
+*.log

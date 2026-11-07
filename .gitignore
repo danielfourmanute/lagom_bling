@@ -1,0 +1,23 @@
+node_modules/
+.pnpm-store/
+dist/
+coverage/
+*.log
+.DS_Store
+.env
+.env.*
+!.env.example
+
+# Runtime data and local services
+prisma/*.db
+prisma/*.db-journal
+.tmp/
+.tmp-*
+
+# Editor and OS state
+.vscode/
+.idea/
+
+# Python
+__pycache__/
+*.pyc
