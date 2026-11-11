@@ -2,7 +2,7 @@
 
 **Fonte Lagom:** `https://beta-api-sandbox.lagomtech.com.br/api-json` (Integration API 1.0.0, consultada em 2026-11-07): **36 operações** em 26 recursos. Substitui a tabela parcial (13 operações) em [api-mapping.md](api-mapping.md).
 **Fonte Bling:** OpenAPI v3 oficial + amostras reais da conta conectada (somente GET).
-**Estado:** análise. Nenhuma escrita no Lagom foi feita (`LAGOM_ORGANIZATION`/`LAGOM_TOKEN` estão vazios no `.env`, e `WRITE_ENABLED=false`).
+**Estado (2026-11-09):** cadastros implementados (`apps/api/src/bling-lagom-mapping.ts`) e carregados no sandbox, organização `zvt`. Veja [lagom-api.md](lagom-api.md) e a análise com dados reais em [Compatibilidade verificada](#compatibilidade-verificada-dados-reais-2026-11-09).
 
 ## Convenções do Lagom que valem para tudo
 
@@ -76,3 +76,27 @@ A quota da Bling é de 3 req/s e 120.000/dia por conta. Marca, unidade, estrutur
 6. **Grupo de cliente:** grupo único, ou por PF/PJ?
 7. **Situações** de pedido de venda/compra que significam aberto × fechado × cancelado.
 8. **Credenciais Lagom** (`LAGOM_ORGANIZATION`, `LAGOM_TOKEN`) e autorização para escrever no sandbox.
+
+
+## Compatibilidade verificada (dados reais, 2026-11-09)
+
+Conta Bling **Algarve Importadora** (ZVT): 12.094 produtos (11.962 ativos + 132 inativos), 840 produtos-pai de variação, 637 contatos (403 do tipo Cliente, 5 Fornecedor, 237 sem tipo), 57 categorias (todas raiz), 1 depósito, 6 formas de pagamento, nenhum grupo de produtos e nenhum campo customizado.
+
+Confirmado no sandbox Lagom: cada registro do lote volta com o próprio `status`, por exemplo `{"code":"X","status":400,"message":"O termo de pagamento não existe."}`. O Lagom valida as referências; a carga registra o resultado por registro.
+
+| Tema | Achado | Decisão aplicada (opção no painel) |
+|---|---|---|
+| Composições | Cerca de 10 mil produtos têm formato "E", mas quase todos são **espelho**: peça ↔ "Garantia: peça", cada uma componente da outra, com estoque físico (`tipoEstoque=F`). Enviadas ao Lagom, formariam ciclos. | Espelhos não são enviados. Só kits de estoque virtual (V) viram `item-composition`, com detecção de ciclo. |
+| Itens "Garantia:" | 5.985 itens (metade do catálogo), com estoque próprio. | Enviados como itens (`includeWarrantyItems`). **Decidir** se as vendas em garantia entram na demanda (tratar em `/movement` com `participateInDemand=false`). |
+| Produtos-pai de variação | Formato V, sem estoque. | Não enviados; as variações (filhas) viram itens e herdam marca e categoria do pai. |
+| Serviços | 3 produtos tipo S (baterias). | Não enviados (`includeServices`). |
+| GTIN | Praticamente nenhum produto tem GTIN; `barcode` é obrigatório. | `barcode` = SKU (código interno, aceito pelo Lagom). GTIN válido (com dígito verificador) tem prioridade. |
+| Fornecedor do produto | Nenhum vínculo produto↔fornecedor (fornecedor sempre 0). `supplierCode` é obrigatório. | `supplierCode` = SKU; `mainSupplier` omitido; não há `supplier-brand`. |
+| Marca | Texto livre (VELOSTER, TRIXX MOTORS, ZUMPY MOTORS, VELOSTER E-BIKE…); o modelo fica no nome (`*Vexx*`). | `code` normalizado (maiúsculas, sem acento); sem marca → `SEM-MARCA`. |
+| Unidade | Só "UN". O Lagom não cadastra unidades pela API. | **Confirmado:** "UN" existe no Lagom (itens aceitos). Outras unidades usam o mapa `unitMap`. |
+| Categoria raiz | `father` é obrigatório no OpenAPI. | **Confirmado:** `father: null` é aceito. |
+| Fornecedor | Lagom exige `freight` e `paymentTerm`; a Bling não tem. | `freight=CIF` e `paymentTerm=7410006` ("Conta a receber/pagar", enviada como termo). **Confirmar** com o negócio. |
+| Termo de pagamento | A Bling tem *formas* (PIX, boleto), não prazos. | Formas enviadas como termos, só para dar um padrão válido ao fornecedor. |
+| Cliente | 25 contatos sem cidade/UF na Bling; país vazio. | Bloqueados até completar o endereço na Bling; país vazio → `BR`. Grupo de cliente = UF (19 grupos), `billingTarget=M`. |
+| Estoque mín./máx. | Por produto na Bling (não por depósito). | Enviado como `branch-item-parameter` da filial padrão (mínimo → `strategicStock`, máximo → `upperStockLimit`). |
+| Sem origem na Bling | `substitute`, `previous-version`, atributos customizados. | Manter no próprio Lagom. |

@@ -2,7 +2,7 @@
 
 Explorador de todas as consultas GET da Bling: [APIs Bling](http://localhost:5173/bling) — veja [docs/bling-get-explorer.md](docs/bling-get-explorer.md). O painel não pede chave: o proxy (nginx no Docker, Vite em dev) injeta `ADMIN_API_TOKEN` do `.env` nas chamadas `/api`. A API direta na porta 3000 continua exigindo a chave. Ambas as portas escutam só em 127.0.0.1; não exponha o painel na rede sem adicionar login.
 
-Para consultar produtos Bling com a conexão mantida pelo Docker: `docker compose up -d --build` e abra [Produtos](http://localhost:5173/products). A autorização inicial é feita uma vez em Conexões; tokens persistidos são renovados automaticamente. Veja [operação Bling e Docker](docs/bling-oauth.md#docker-consulta-de-produtos-e-conexão-automática). Lagom permanece para uma fase posterior.
+Para consultar produtos Bling com a conexão mantida pelo Docker: `docker compose up -d --build` e abra [Produtos](http://localhost:5173/products). A autorização inicial é feita uma vez em Conexões; tokens persistidos são renovados automaticamente. Veja [operação Bling e Docker](docs/bling-oauth.md#docker-consulta-de-produtos-e-conexão-automática). Lagom: [APIs Lagom](http://localhost:5173/lagom) (todas as 35 operações, consultas executáveis) e [Cadastros Bling → Lagom](http://localhost:5173/lagom/compatibilidade) (snapshot, compatibilidade e carga). Escrita no Lagom só com `LAGOM_WRITE_ENABLED=true` — veja [docs/lagom-api.md](docs/lagom-api.md).
 
 Scaffold novo em Node.js/TypeScript para construir um middleware auditável entre o Lagom DRP e o Bling API v3. A árvore foi criada nesta sandbox porque a cópia original não estava disponível; não é uma alteração nem uma sincronização do repositório remoto anterior.
 

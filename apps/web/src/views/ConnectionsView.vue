@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
+import { RouterLink } from 'vue-router';
+import { lagomState, refreshLagomStatus } from '../composables/lagom';
 import { adminToken, needsKey, blingRequest as request, connection, forgetAdminToken, refreshConnection } from '../composables/bling';
 const fmt = (iso?: string) => iso ? new Date(iso).toLocaleString('pt-BR') : '—';
 const status = computed(() => ({
@@ -11,7 +13,7 @@ const status = computed(() => ({
   OFFLINE: 'API do middleware indisponível.',
   unknown: 'Verificando…',
 }[connection.state]));
-onMounted(() => void refreshConnection());
+onMounted(() => { void refreshConnection(); void refreshLagomStatus(); });
 const message = ref('');
 const busy = ref(false);
 const authorizationUrl = ref('');
@@ -54,8 +56,11 @@ async function action(kind: 'connect' | 'status' | 'test' | 'complete') {
         </div>
         <p role="status">{{ message }}</p>
       </article>
-      <article class="connection-card"><h2>Lagom DRP</h2><p>Aguardando implementação e homologação do conector.</p></article>
-      <article class="connection-card"><h2>Sincronização</h2><p>Rotinas de sincronização ainda não implementadas. A conexão Bling permite autenticação e teste de leitura.</p></article>
+      <article class="connection-card"><h2>Lagom DRP</h2>
+        <p v-if="lagomState.status?.configured">Organização <strong>{{ lagomState.status.organization }}</strong> · login e renovação automáticos pelo servidor. Escrita {{ lagomState.status.writeEnabled ? 'liberada' : 'bloqueada (LAGOM_WRITE_ENABLED=false)' }}.</p>
+        <p v-else>Preencha LAGOM_ORGANIZATION e LAGOM_TOKEN no .env.</p>
+        <RouterLink to="/lagom">Testar e explorar as APIs Lagom</RouterLink></article>
+      <article class="connection-card"><h2>Cadastros Bling → Lagom</h2><p>Leitura dos cadastros da Bling, relatório de compatibilidade e carga no Lagom.</p><RouterLink to="/lagom/compatibilidade">Abrir</RouterLink></article>
     </div>
   </section>
 </template>

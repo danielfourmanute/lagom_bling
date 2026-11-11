@@ -2,6 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, watch } from 'vue';
 import { RouterLink, RouterView } from 'vue-router';
 import { adminToken, connection, refreshConnection } from './composables/bling';
+import { lagomState, refreshLagomStatus } from './composables/lagom';
 
 const time = (iso?: string) => iso ? new Date(iso).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '—';
 const statusText = computed(() => ({
@@ -15,7 +16,7 @@ const statusText = computed(() => ({
 }[connection.state]));
 const statusClass = computed(() => connection.state === 'ACTIVE' ? 'dot-ok' : ['EXPIRED', 'PENDING', 'OFFLINE', 'BAD_KEY'].includes(connection.state) ? 'dot-bad' : '');
 let timer: ReturnType<typeof setInterval> | undefined;
-onMounted(() => { void refreshConnection(); timer = setInterval(refreshConnection, 60000); });
+onMounted(() => { void refreshConnection(); void refreshLagomStatus(); timer = setInterval(refreshConnection, 60000); });
 onBeforeUnmount(() => clearInterval(timer));
 watch(adminToken, () => void refreshConnection());
 </script>
@@ -34,6 +35,18 @@ watch(adminToken, () => void refreshConnection());
       <nav class="navigation" aria-label="Navegação principal">
         <RouterLink to="/bling" class="nav-link" active-class="active">
           <span class="nav-symbol">API</span> APIs Bling (GET)
+        </RouterLink>
+        <RouterLink to="/lagom" class="nav-link" :class="{ active: $route.path === '/lagom' || $route.path.startsWith('/lagom/op') }">
+          <span class="nav-symbol">LGM</span> APIs Lagom
+        </RouterLink>
+        <RouterLink to="/lagom/dados" class="nav-link" active-class="active">
+          <span class="nav-symbol">DRP</span> Dados no Lagom
+        </RouterLink>
+        <RouterLink to="/lagom/compatibilidade" class="nav-link" active-class="active">
+          <span class="nav-symbol">B→L</span> Cadastros Bling → Lagom
+        </RouterLink>
+        <RouterLink to="/lagom/log" class="nav-link" active-class="active">
+          <span class="nav-symbol">LOG</span> Log das cargas
         </RouterLink>
         <RouterLink to="/products" class="nav-link" active-class="active">
           <span class="nav-symbol">P</span> Produtos Bling
@@ -61,7 +74,7 @@ watch(adminToken, () => void refreshConnection());
     <main class="main-area">
       <header class="topbar">
         <span class="eyebrow">MIDDLEWARE · AMBIENTE LOCAL</span>
-        <span class="topbar-badge">BLING · SOMENTE LEITURA</span>
+        <span class="topbar-badge">BLING · SOMENTE LEITURA · LAGOM · {{ lagomState.status?.writeEnabled ? 'ESCRITA LIBERADA' : 'ESCRITA BLOQUEADA' }}</span>
       </header>
       <RouterView />
     </main>

@@ -3,7 +3,7 @@ export interface ApiHealth {
   service: string;
   timestamp: string;
   schedulerEnabled: false;
-  externalWritesEnabled: false;
+  externalWritesEnabled: boolean;
 }
 
 export async function getApiHealth(): Promise<ApiHealth> {

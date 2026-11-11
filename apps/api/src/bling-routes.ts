@@ -1,7 +1,8 @@
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import type { AppConfig } from './config.js';
-import { BlingConnection, BlingError, secureEqual } from './bling.js';
+import { adminGuard } from './auth.js';
+import { BlingConnection, BlingError } from './bling.js';
 import { buildBlingRequest } from './bling-explorer.js';
 import { blingEndpoints } from './generated/bling-get-catalog.js';
 
@@ -14,9 +15,7 @@ export async function registerBling(app: FastifyInstance, config: AppConfig, con
   const session = (req: FastifyRequest) => req.headers.cookie?.split(';').map(s => s.trim()).find(s => s.startsWith(cookieName + '='))?.slice(cookieName.length + 1) ?? '';
   const callback = new URL(config.BLING_REDIRECT_URI);
   const cookie = (value: string, age: number) => `${cookieName}=${value}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${age}${config.NODE_ENV === 'production' ? '; Secure' : ''}`;
-  const admin = async (req: FastifyRequest) => {
-    if (!secureEqual(req.headers.authorization ?? '', `Bearer ${config.ADMIN_API_TOKEN}`)) throw new BlingError('UNAUTHORIZED', 401);
-  };
+  const admin = adminGuard(config);
   app.addHook('onSend', async (request, reply) => {
     if (request.url.startsWith('/api/bling') || request.url.split('?')[0] === callback.pathname) {
       reply.header('Cache-Control', 'no-store').header('Referrer-Policy', 'no-referrer');

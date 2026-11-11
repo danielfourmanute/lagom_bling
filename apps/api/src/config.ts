@@ -17,7 +17,14 @@ const EnvironmentSchema = z.object({
   APP_HOST: z.string().default('127.0.0.1'),
   APP_PORT: z.coerce.number().int().min(1024).max(65535).default(3000),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
-  LAGOM_API_BASE_URL: z.url().default('https://beta-api-sandbox.lagomtech.com.br'),
+  LAGOM_API_BASE_URL: z.url().default('https://beta-api-sandbox.lagomtech.com.br').transform(u => u.replace(/\/+$/, '')),
+  LAGOM_ORGANIZATION: z.string().trim().default(''),
+  LAGOM_TOKEN: z.string().trim().default(''),
+  LAGOM_TIMEOUT_MS: z.coerce.number().int().min(1000).max(120000).default(30000),
+  /** Libera as operações do Lagom que gravam dados (PUT/DELETE). Desligado por padrão. */
+  LAGOM_WRITE_ENABLED: envBoolean,
+  /** Registros por requisição nos upserts em lote do Lagom. */
+  LAGOM_BATCH_SIZE: z.coerce.number().int().min(1).max(5000).default(500),
   BLING_API_BASE_URL: z.url().default('https://api.bling.com.br/Api/v3'),
   BLING_OAUTH_ENABLED: envBoolean,
   BLING_OAUTH_AUTHORIZE_URL: z.url().default('https://www.bling.com.br/Api/v3/oauth/authorize'),

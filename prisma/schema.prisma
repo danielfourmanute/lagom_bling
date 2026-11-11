@@ -271,3 +271,18 @@ model OAuthState {
   @@index([expiresAt])
   @@map("oauth_states")
 }
+
+/// Cópia local (somente leitura) dos cadastros lidos da origem, usada para mapear e validar
+/// antes de enviar ao destino. Uma linha por registro de origem.
+model SourceRecord {
+  system      DataSystem
+  resource    String
+  externalId  String
+  payload     Json
+  payloadHash String
+  fetchedAt   DateTime   @default(now()) @db.Timestamptz(6)
+
+  @@id([system, resource, externalId])
+  @@index([system, resource, fetchedAt])
+  @@map("source_records")
+}
